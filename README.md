@@ -5,7 +5,7 @@ A single-file, browser-based tool to design asymmetric single-stranded oligodeox
 [Addgene / Richardson *et al.* 2016](https://blog.addgene.org/optimizing-donor-dna-for-enhanced-crispr-genome-editing)
 guidelines (127 nt total; asymmetric 91 nt PAM-proximal + 36 nt PAM-distal arms; complementary to the non-target strand).
 
-**▶ Live tool:** `https://USERNAME.github.io/REPO/ssODN_designer.html`  *(update this after you enable GitHub Pages)*
+**▶ Live tool:** `https://anilkchalla.github.io/HDR-ssODN-designer/index.html`
 
 ## Features
 
@@ -20,7 +20,7 @@ guidelines (127 nt total; asymmetric 91 nt PAM-proximal + 36 nt PAM-distal arms;
 
 ## Use
 
-Open `ssODN_designer.html` in any modern browser — double-click the local file, or visit the hosted link
+Open `index.html` in any modern browser — double-click the local file, or visit the hosted link
 above. Click **Load example** for a worked design.
 
 ## Method / citation
