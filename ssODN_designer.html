@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRISPR HDR ssODN Designer</title>
+<style>
+  :root{
+    --proto:#2563eb; --pam:#dc2626; --edit:#16a34a; --block:#9333ea;
+    --armL:#0d9488; --armR:#d97706; --cut:#111827;
+    --bg:#f7f8fa; --card:#ffffff; --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --accent:#2563eb; --warn:#b45309; --warnbg:#fffbeb; --err:#b91c1c; --errbg:#fef2f2;
+    --ok:#166534; --okbg:#f0fdf4;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;font-size:14px}
+  .wrap{max-width:1040px;margin:0 auto;padding:24px 20px 80px}
+  h1{font-size:22px;margin:0 0 2px}
+  h2{font-size:16px;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--muted);margin:0 0 20px;font-size:13px}
+  .sub a{color:var(--accent)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 18px;margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  label{display:block;font-weight:600;margin:0 0 4px;font-size:13px}
+  .hint{font-weight:400;color:var(--muted);font-size:12px}
+  textarea,input[type=text],input[type=number],select{
+    width:100%;padding:8px 10px;border:1px solid #cdd3da;border-radius:7px;font-size:13px;
+    font-family:inherit;background:#fff;color:var(--ink)}
+  textarea{font-family:"SF Mono",Menlo,Consolas,monospace;resize:vertical;min-height:90px;font-size:12.5px;letter-spacing:.3px}
+  .mono{font-family:"SF Mono",Menlo,Consolas,monospace}
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:150px}
+  .field{margin-bottom:14px}
+  .btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  button{font:inherit;font-weight:600;border-radius:7px;border:1px solid transparent;padding:9px 16px;cursor:pointer}
+  .primary{background:var(--accent);color:#fff}
+  .primary:hover{background:#1d4ed8}
+  .ghost{background:#fff;border-color:#cdd3da;color:var(--ink)}
+  .ghost:hover{background:#f3f4f6}
+  details{margin-top:6px;border:1px dashed var(--line);border-radius:8px;padding:0 12px}
+  details>summary{cursor:pointer;font-weight:600;padding:10px 0;font-size:13px;color:#374151;list-style:none}
+  details>summary::before{content:"▸ ";color:var(--muted)}
+  details[open]>summary::before{content:"▾ "}
+  .det-body{padding:4px 0 14px}
+  /* ---- edit list ---- */
+  .editRow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:#f9fafb;border:1px solid var(--line);
+    border-radius:8px;padding:8px 10px;margin-bottom:8px}
+  .editRow select{max-width:185px;flex:0 0 auto}
+  .editRow input{flex:1;min-width:90px}
+  .editRow input.er-pos,.editRow input.er-len{max-width:120px;flex:0 0 auto}
+  .editRow .er-hint{flex-basis:100%;margin:0 0 0 2px;min-height:14px}
+  .er-rm{background:#fff;border:1px solid #e5e7eb;color:#b91c1c;padding:6px 10px;border-radius:6px;font-weight:700;flex:0 0 auto}
+  .er-rm:hover{background:#fef2f2}
+  #results{display:none}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px}
+  .stat{background:#f9fafb;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .stat .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px}
+  .stat .v{font-size:15px;font-weight:700;margin-top:2px}
+  .seqbox{position:relative;background:#0f172a;color:#e2e8f0;border-radius:8px;padding:14px 14px;margin-top:6px;
+    font-family:"SF Mono",Menlo,Consolas,monospace;font-size:13px;word-break:break-all;line-height:1.7;letter-spacing:1px}
+  .seqbox .lbl{position:absolute;top:8px;right:10px;font-size:10px;color:#94a3b8;letter-spacing:.5px}
+  .copybtn{position:absolute;bottom:10px;right:10px;background:#1e293b;color:#cbd5e1;border:1px solid #334155;
+    padding:4px 10px;font-size:11px;border-radius:6px}
+  .copybtn:hover{background:#334155}
+  .hl-edit{background:rgba(22,163,74,.35);border-radius:3px;padding:1px 0;color:#bbf7d0;font-weight:700}
+  .hl-block{background:rgba(147,51,234,.35);border-radius:3px;padding:1px 0;color:#e9d5ff;font-weight:700}
+  .hl-pam{background:rgba(220,38,38,.35);border-radius:3px;padding:1px 0;color:#fecaca;font-weight:700}
+  .msg{padding:10px 12px;border-radius:8px;margin:8px 0;font-size:13px}
+  .msg.warn{background:var(--warnbg);border:1px solid #fde68a;color:var(--warn)}
+  .msg.err{background:var(--errbg);border:1px solid #fecaca;color:var(--err)}
+  .msg.ok{background:var(--okbg);border:1px solid #bbf7d0;color:var(--ok)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 4px;font-size:12px}
+  .legend span{display:inline-flex;align-items:center;gap:5px}
+  .sw{width:13px;height:13px;border-radius:3px;display:inline-block}
+  .explain p{margin:8px 0}
+  .explain code{background:#f1f5f9;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  .explain ul{margin:6px 0 6px 2px;padding-left:18px}
+  .svgwrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:#fff;margin:6px 0}
+  .pill{display:inline-block;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:20px;
+    padding:2px 10px;font-size:11px;font-weight:600;margin-left:6px}
+  .quick{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+  .quick button{padding:5px 11px;font-size:12px;font-weight:500}
+  .footer{color:var(--muted);font-size:12px;margin-top:24px;text-align:center}
+  .footer a{color:var(--accent)}
+  .inline-check{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px}
+  .inline-check input{width:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>CRISPR HDR ssODN Designer</h1>
+  <p class="sub">Designs an asymmetric single-stranded oligo donor (ssODN) for homology-directed repair, following
+    <a href="https://blog.addgene.org/optimizing-donor-dna-for-enhanced-crispr-genome-editing" target="_blank" rel="noopener">Addgene / Richardson et&nbsp;al. 2016</a>:
+    127&nbsp;nt total, asymmetric arms (91&nbsp;nt PAM-proximal&nbsp;+ 36&nbsp;nt PAM-distal), complementary to the non-target strand.
+    Re-cut blocking mutations are <em>suggested, not auto-applied</em>.</p>
+
+  <!-- ===================== INPUTS ===================== -->
+  <div class="card">
+    <h2>Inputs</h2>
+
+    <div class="field">
+      <label>1 · Gene / locus sequence <span class="hint">— paste the region around your target (FASTA header, spaces &amp; numbers OK). Needs ≥ ~130&nbsp;nt of flank around the cut for full arms.</span></label>
+      <textarea id="gene" spellcheck="false" placeholder="e.g. ATGCGT...  (genomic DNA, sense strand)"></textarea>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>2 · sgRNA / spacer (5'→3') <span class="hint">— 20&nbsp;nt, with or without PAM</span></label>
+        <input id="sgrna" type="text" class="mono" spellcheck="false" placeholder="e.g. GACCTGGAGAACGGCAAGCT">
+      </div>
+      <div class="field" style="max-width:140px">
+        <label>PAM <span class="hint">IUPAC</span></label>
+        <input id="pam" type="text" class="mono" value="NGG" spellcheck="false">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>3 · Desired edit(s) <span class="hint">— add one or more edits at different sites, or use “Replace (find→new)” to paste a sequence. Leave empty for a framework-only design.</span></label>
+      <div id="editList"></div>
+      <div class="btns" style="margin-top:4px">
+        <button class="ghost" type="button" onclick="addEditRow('sub')">+ Add edit</button>
+        <button class="ghost" type="button" onclick="resetEdits()">Clear edits</button>
+      </div>
+      <div class="quick" id="quickEdits"></div>
+    </div>
+
+    <details>
+      <summary>Advanced — homology arms, ssODN strand, coding frame</summary>
+      <div class="det-body">
+        <div class="row">
+          <div class="field">
+            <label>PAM-proximal arm (nt)</label>
+            <input id="armProx" type="number" min="20" value="91">
+          </div>
+          <div class="field">
+            <label>PAM-distal arm (nt)</label>
+            <input id="armDist" type="number" min="20" value="36">
+          </div>
+          <div class="field">
+            <label>&nbsp;</label>
+            <button class="ghost" type="button" onclick="setSymmetric()">Use symmetric 60 / 60</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="field">
+            <label>ssODN strand</label>
+            <select id="strandMode">
+              <option value="auto" selected>Auto — complementary to non-target strand (Richardson)</option>
+              <option value="flip">Flip — complementary to target strand</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label class="inline-check"><input type="checkbox" id="codingOn"> Region is protein-coding (enables synonymous / silent blocking-mutation check)</label>
+          <div class="row" id="codingFields" style="display:none;margin-top:8px">
+            <div>
+              <label>First base of a codon <span class="hint">(1-based gene pos)</span></label>
+              <input id="cdsStart" type="number" min="1" placeholder="e.g. 1">
+            </div>
+            <div>
+              <label>CDS strand</label>
+              <select id="cdsStrand"><option value="+">+ (sense / same as pasted)</option><option value="-">− (antisense)</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </details>
+
+    <div class="btns">
+      <button class="primary" onclick="design()">Design ssODN</button>
+      <button class="ghost" onclick="loadExample()">Load example</button>
+      <button class="ghost" onclick="clearAll()">Clear all</button>
+    </div>
+    <div id="inputMsg"></div>
+  </div>
+
+  <!-- ===================== RESULTS ===================== -->
+  <div id="results">
+    <div class="card">
+      <h2>ssODN donor <span id="strandPill" class="pill"></span></h2>
+      <div id="warnings"></div>
+      <label class="inline-check" style="font-weight:500;font-size:12px;margin:2px 0 6px;color:var(--muted)">
+        <input type="checkbox" id="caseToggle" checked> lowercase = homology arms ·
+        <b style="color:var(--edit)">UPPERCASE</b> = edited base(s) <span class="hint">(case is preserved when you copy)</span>
+      </label>
+      <div class="seqbox">
+        <span class="lbl">5'&nbsp;→&nbsp;3'</span>
+        <div id="ssodnSeq" class="mono"></div>
+        <button class="copybtn" onclick="copySeq()">Copy</button>
+      </div>
+      <div class="stat-grid" style="margin-top:14px" id="stats"></div>
+    </div>
+
+    <div class="card">
+      <h2>Schematic</h2>
+      <div class="legend" id="legend"></div>
+      <div class="svgwrap"><div id="macro"></div></div>
+      <div class="svgwrap"><div id="zoom"></div></div>
+    </div>
+
+    <div class="card">
+      <h2>Explanation</h2>
+      <div class="explain" id="explain"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Method: Richardson C.D. et&nbsp;al., <em>Nat Biotechnol</em> 2016 · summarized by
+    <a href="https://blog.addgene.org/optimizing-donor-dna-for-enhanced-crispr-genome-editing" target="_blank" rel="noopener">Addgene</a>.
+    Always sanity-check the design against your own sequence. Runs entirely in your browser — nothing is uploaded.
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   Constants & small helpers
+   ========================================================================= */
+const SEED_LEN = 10;          // PAM-proximal protospacer nt treated as "seed"
+const DIST_WARN = 10;         // warn if an edit is farther than this from the cut
+const MIN_HOM_BEYOND = 20;    // min homology required on the far side of an edit
+const CUT_OFFSET = 3;         // SpCas9 blunt cut: 3 bp 5' of the PAM
+
+const IUPAC = {A:'A',C:'C',G:'G',T:'T',R:'AG',Y:'CT',S:'GC',W:'AT',K:'GT',M:'AC',
+               B:'CGT',D:'AGT',H:'ACT',V:'ACG',N:'ACGT'};
+const COMP  = {A:'T',T:'A',C:'G',G:'C',N:'N',R:'Y',Y:'R',S:'S',W:'W',K:'M',M:'K',
+               B:'V',V:'B',D:'H',H:'D'};
+const CODON = {TTT:'F',TTC:'F',TTA:'L',TTG:'L',CTT:'L',CTC:'L',CTA:'L',CTG:'L',
+  ATT:'I',ATC:'I',ATA:'I',ATG:'M',GTT:'V',GTC:'V',GTA:'V',GTG:'V',
+  TCT:'S',TCC:'S',TCA:'S',TCG:'S',CCT:'P',CCC:'P',CCA:'P',CCG:'P',
+  ACT:'T',ACC:'T',ACA:'T',ACG:'T',GCT:'A',GCC:'A',GCA:'A',GCG:'A',
+  TAT:'Y',TAC:'Y',TAA:'*',TAG:'*',CAT:'H',CAC:'H',CAA:'Q',CAG:'Q',
+  AAT:'N',AAC:'N',AAA:'K',AAG:'K',GAT:'D',GAC:'D',GAA:'E',GAG:'E',
+  TGT:'C',TGC:'C',TGA:'*',TGG:'W',CGT:'R',CGC:'R',CGA:'R',CGG:'R',
+  AGT:'S',AGC:'S',AGA:'R',AGG:'R',GGT:'G',GGC:'G',GGA:'G',GGG:'G'};
+
+const $ = id => document.getElementById(id);
+function comp(b){return COMP[b]||'N';}
+function revcomp(s){let o='';for(let i=s.length-1;i>=0;i--)o+=comp(s[i]);return o;}
+function cleanSeq(raw){
+  return (raw||'').replace(/^>.*$/gm,'').replace(/[^A-Za-z]/g,'').toUpperCase().replace(/U/g,'T');
+}
+function matchPam(seg, pat){
+  if(seg.length<pat.length) return false;
+  for(let i=0;i<pat.length;i++){ if(!(IUPAC[pat[i]]||'').includes(seg[i])) return false; }
+  return true;
+}
+function gc(s){const m=(s.match(/[GC]/g)||[]).length; return s.length? Math.round(1000*m/s.length)/10 : 0;}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+/* =========================================================================
+   Target finding: locate protospacer + PAM on both strands
+   ========================================================================= */
+function findTargets(gene, spacer, pam){
+  const hits=[]; const L=spacer.length, P=pam.length;
+  for(let i=gene.indexOf(spacer); i!==-1; i=gene.indexOf(spacer,i+1)){
+    const pamSeq=gene.substr(i+L,P);
+    if(pamSeq.length===P && matchPam(pamSeq,pam)) hits.push({strand:'+',pStart:i,pEnd:i+L,pamSeq});
+  }
+  const rc=revcomp(spacer);
+  for(let i=gene.indexOf(rc); i!==-1; i=gene.indexOf(rc,i+1)){
+    if(i-P<0) continue;
+    const pamMinus=revcomp(gene.substr(i-P,P));
+    if(matchPam(pamMinus,pam)) hits.push({strand:'-',pStart:i,pEnd:i+L,pamSeq:pamMinus});
+  }
+  return hits;
+}
+
+/* =========================================================================
+   Translation helpers (optional synonymous / silent check)
+   ========================================================================= */
+function translateAt(seq, cdsStart0, cdsStrand, pos0){
+  if(cdsStrand==='+'){
+    if(pos0<cdsStart0) return null;
+    const fs=cdsStart0+3*Math.floor((pos0-cdsStart0)/3);
+    const codon=seq.substr(fs,3); if(codon.length<3) return null;
+    return {aa:CODON[codon]||'?',codon};
+  } else {
+    if(pos0>cdsStart0) return null;
+    const fs=cdsStart0-3*Math.floor((cdsStart0-pos0)/3);
+    if(fs-2<0) return null;
+    const codon=revcomp(seq.substr(fs-2,3)); if(codon.length<3) return null;
+    return {aa:CODON[codon]||'?',codon};
+  }
+}
+function isSilent(seq, cdsStart0, cdsStrand, pos0, newBase){
+  const before=translateAt(seq,cdsStart0,cdsStrand,pos0); if(!before) return null;
+  const mut=seq.slice(0,pos0)+newBase+seq.slice(pos0+1);
+  const after=translateAt(mut,cdsStart0,cdsStrand,pos0); if(!after) return null;
+  return before.aa===after.aa;
+}
+
+/* =========================================================================
+   Edit model: collect rows -> canonical edits -> apply with coordinate map
+   ========================================================================= */
+function rowBlank(row){
+  const t=row.querySelector('.er-type').value;
+  const v=s=>(row.querySelector(s).value||'').trim();
+  if(t==='rep') return !v('.er-find') && !v('.er-rep');
+  return !v('.er-pos') && !v('.er-seq') && (t!=='del'); // del with only a length but no pos is still blank
+}
+function rowToEdit(row, gene){
+  const t=row.querySelector('.er-type').value;
+  const pos=parseInt(row.querySelector('.er-pos').value);
+  const seq=cleanSeq(row.querySelector('.er-seq').value);
+  const len=parseInt(row.querySelector('.er-len').value);
+  const find=cleanSeq(row.querySelector('.er-find').value);
+  const rep=cleanSeq(row.querySelector('.er-rep').value);
+  if(t==='rep'){
+    if(!find) throw 'Replace: enter the reference sequence to find.';
+    const i=gene.indexOf(find);
+    if(i<0) throw 'Replace: “'+find+'” was not found in the gene sequence.';
+    if(gene.indexOf(find,i+1)>=0) throw 'Replace: “'+find+'” occurs more than once — extend it so it is unique.';
+    return {type:'rep',start0:i,refLen:find.length,newSeq:rep,label:find+'→'+(rep||'∅')};
+  }
+  if(!pos||pos<1||pos>gene.length+1) throw 'Edit position is missing or out of range.';
+  const s0=pos-1;
+  if(t==='sub'){
+    if(!seq) throw 'Substitution: enter the new base(s).';
+    if(s0+seq.length>gene.length) throw 'Substitution at position '+pos+' runs past the end of the gene.';
+    return {type:'sub',start0:s0,refLen:seq.length,newSeq:seq,label:'pos '+pos+' '+gene.substr(s0,seq.length)+'→'+seq};
+  }
+  if(t==='ins'){
+    if(!seq) throw 'Insertion: enter the sequence to insert.';
+    return {type:'ins',start0:s0,refLen:0,newSeq:seq,label:'+'+seq+' before pos '+pos};
+  }
+  // del
+  const d=Math.max(1,len||1);
+  if(s0+d>gene.length) throw 'Deletion at position '+pos+' runs past the end of the gene.';
+  return {type:'del',start0:s0,refLen:d,newSeq:'',label:'Δ'+d+' nt at pos '+pos};
+}
+function collectEdits(gene){
+  const rows=[...document.querySelectorAll('#editList .editRow')];
+  const edits=[];
+  for(const row of rows){ if(!rowBlank(row)) edits.push(rowToEdit(row,gene)); }
+  return edits;
+}
+// apply edits; returns edited sequence, original->final index map, and edited intervals (final coords)
+function applyEdits(gene, edits){
+  edits=edits.slice().sort((a,b)=>a.start0-b.start0);
+  for(let i=1;i<edits.length;i++){
+    if(edits[i].start0 < edits[i-1].start0+edits[i-1].refLen)
+      throw 'Two edits overlap near position '+(edits[i].start0+1)+'. Edits must not overlap.';
+  }
+  let out='', map=new Array(gene.length+1).fill(0), intervals=[], o=0;
+  for(const e of edits){
+    while(o<e.start0){ map[o]=out.length; out+=gene[o]; o++; }
+    const fStart=out.length;
+    for(let k=0;k<e.refLen;k++){ map[o]=fStart; o++; }   // replaced bases collapse to the new block start
+    out+=e.newSeq;
+    intervals.push({start:fStart, end:out.length, edit:e});
+  }
+  while(o<gene.length){ map[o]=out.length; out+=gene[o]; o++; }
+  map[gene.length]=out.length;
+  return {seq:out, map, intervals};
+}
+
+/* =========================================================================
+   Re-cut assessment + blocking-mutation suggestion
+   ========================================================================= */
+function overlaps(e,a,b){ const s=e.start0, en=e.start0+Math.max(e.refLen,1); return s<b && en>a; }
+function assessRecut(gene, finalSeq, map, t, pam, pamStart, pamEnd, seedStart, seedEnd, edits){
+  if(edits.some(e=>overlaps(e,pamStart,pamEnd)))
+    return {recut:false,reason:'An edit changes or removes the PAM, so Cas9 can no longer cut the corrected allele.'};
+  // PAM unchanged in length here (no overlap) -> read it from final coords
+  const pamFinal=finalSeq.substr(map[pamStart],pam.length);
+  if(!matchPam(t.strand==='+'?pamFinal:revcomp(pamFinal),pam))
+    return {recut:false,reason:'Your edit alters the PAM ('+pamFinal+'), so Cas9 can no longer cut the corrected allele.'};
+  if(edits.some(e=>overlaps(e,seedStart,seedEnd)))
+    return {recut:false,soft:true,reason:'An edit lies in the seed region, which strongly suppresses re-cutting. A PAM mutation is optional for extra safety.'};
+  return {recut:true,reason:'PAM and seed are intact in the corrected allele — Cas9 will re-cut it. Add a blocking mutation.'};
+}
+function suggestBlocking(gene, seqForSilent, lenPreserving, t, pam, pamStart, pamEnd, seedStart, seedEnd, codingOn, cdsStart0, cdsStrand){
+  const cands=[];
+  const tryBase=(pos0,bases,note)=>{
+    for(const nb of bases){
+      if(gene[pos0]===nb) continue;
+      let silent=null;
+      if(codingOn && lenPreserving) silent=isSilent(seqForSilent,cdsStart0,cdsStrand,pos0,nb);
+      cands.push({pos0,from:gene[pos0],to:nb,note,silent});
+    }
+  };
+  if(t.strand==='+'){
+    tryBase(pamStart+2,['C','T','A'],'PAM position 3 (G→·): NGG→NG·');
+    tryBase(pamStart+1,['C','T','A'],'PAM position 2 (G→·): NGG→N·G');
+  } else {
+    tryBase(pamStart,  ['G','A','T'],'PAM (− strand): breaks one G of NGG');
+    tryBase(pamStart+1,['G','A','T'],'PAM (− strand): breaks one G of NGG');
+  }
+  let pick=cands[0];
+  if(codingOn && lenPreserving){ const s=cands.find(c=>c.silent===true); if(s)pick=s; }
+  const seedAlts=[];
+  for(let g=seedStart; g<seedEnd && seedAlts.length<1; g++){
+    for(const nb of ['A','C','G','T']){
+      if(nb===gene[g]) continue;
+      const silent=(codingOn&&lenPreserving)?isSilent(seqForSilent,cdsStart0,cdsStrand,g,nb):null;
+      if(!codingOn || !lenPreserving || silent){ seedAlts.push({pos0:g,from:gene[g],to:nb,silent}); break; }
+    }
+  }
+  return Object.assign({}, pick||{}, {seedAlts});
+}
+
+/* =========================================================================
+   Main design routine
+   ========================================================================= */
+let LAST=null;
+
+function design(){
+  const msg=$('inputMsg'); msg.innerHTML=''; $('results').style.display='none';
+  const warns=[], errs=[];
+  try{
+    const gene=cleanSeq($('gene').value);
+    let spacer=cleanSeq($('sgrna').value);
+    const pam=($('pam').value||'NGG').toUpperCase().trim();
+    if(gene.length<40) throw 'Gene sequence is too short (need the locus around the cut).';
+    if(spacer.length<15) throw 'sgRNA / spacer looks too short.';
+
+    // locate target (auto-strip an included PAM if needed)
+    let hits=findTargets(gene,spacer,pam);
+    if(hits.length===0 && spacer.length>20){
+      for(const cand of [spacer.slice(0,spacer.length-pam.length), spacer.slice(0,20)]){
+        const h=findTargets(gene,cand,pam); if(h.length){ spacer=cand; hits=h; break; }
+      }
+    }
+    if(hits.length===0)
+      throw 'Could not find the protospacer with a '+pam+' PAM on either strand. '+
+            'Check the spacer, the PAM, and that the gene includes the target site.';
+    if(hits.length>1)
+      warns.push('Found '+hits.length+' matching sites; using the first (positions: '+
+        hits.map(h=>(h.pStart+1)+h.strand).join(', ')+'). Trim the gene to disambiguate.');
+
+    const t=hits[0];
+    const cut=(t.strand==='+')?t.pEnd-CUT_OFFSET:t.pStart+CUT_OFFSET;
+    const pamStart=(t.strand==='+')?t.pEnd:t.pStart-pam.length, pamEnd=pamStart+pam.length;
+    const seedStart=(t.strand==='+')?t.pEnd-SEED_LEN:t.pStart, seedEnd=(t.strand==='+')?t.pEnd:t.pStart+SEED_LEN;
+
+    // arms (long on PAM-proximal side)
+    const armProx=Math.max(20,parseInt($('armProx').value)||91);
+    const armDist=Math.max(20,parseInt($('armDist').value)||36);
+    const leftCanon=(t.strand==='+')?armDist:armProx;   // upstream side
+    const rightCanon=(t.strand==='+')?armProx:armDist;  // downstream side
+
+    // coding frame (optional)
+    const codingOn=$('codingOn').checked;
+    const cdsStart0=codingOn?(parseInt($('cdsStart').value)-1):null;
+    const cdsStrand=codingOn?$('cdsStrand').value:null;
+
+    // ---- collect edits ----
+    const editsBase=collectEdits(gene);
+    const lenPreserving=editsBase.every(e=>e.refLen===e.newSeq.length);
+
+    // ---- re-cut assessment (on the base-edited allele) ----
+    const baseApplied=applyEdits(gene,editsBase);
+    const assess=assessRecut(gene,baseApplied.seq,baseApplied.map,t,pam,pamStart,pamEnd,seedStart,seedEnd,editsBase);
+
+    // ---- blocking suggestion (suggested; applied only if opted in) ----
+    let block=null;
+    if(assess.recut){
+      block=suggestBlocking(gene,baseApplied.seq,lenPreserving,t,pam,pamStart,pamEnd,seedStart,seedEnd,
+                            codingOn,cdsStart0,cdsStrand);
+    }
+    const applyBlock = !!(block && block.pos0!=null && $('applyBlock') && $('applyBlock').checked);
+    const editsFinal=editsBase.slice();
+    if(applyBlock){
+      if(editsBase.some(e=>overlaps(e,block.pos0,block.pos0+1)))
+        warns.push('Blocking mutation overlaps another edit and was not applied.');
+      else editsFinal.push({type:'sub',start0:block.pos0,refLen:1,newSeq:block.to,label:'block',isBlock:true});
+    }
+
+    // ---- build donor: arms are FIXED at the canonical genomic homology window
+    //      (leftCanon/rightCanon, default 36/91) around the cut and are NEVER auto-extended.
+    //      Edits are applied inside the window; edits that fall outside it are not included. ----
+    let W0=cut-leftCanon, W1=cut+rightCanon;
+    if(W0<0){ W0=0; warns.push('Not enough upstream sequence for the full '+leftCanon+' nt arm — clamped to what is available. Paste more of the locus.'); }
+    if(W1>gene.length){ W1=gene.length; warns.push('Not enough downstream sequence for the full '+rightCanon+' nt arm — clamped to what is available. Paste more of the locus.'); }
+    const leftHom=cut-W0, rightHom=W1-cut;     // genomic homology actually available on each side
+    const within=e=>{ const eR=e.start0+e.refLen; return e.start0>=W0 && eR<=W1; };
+
+    // coverage: with fixed arms, an edit too far from the cut simply will not fit
+    editsBase.forEach(e=>{
+      if(!within(e)){
+        errs.push('“'+e.label+'” lies outside the '+armProx+'/'+armDist+
+          ' nt (PAM-proximal/distal) homology arms around the cut and is NOT included in the ssODN. Pick a guide that cuts closer to this edit — arms are not auto-extended.');
+        return;
+      }
+      const beyond=Math.min(e.start0-W0, W1-(e.start0+e.refLen));
+      if(beyond<MIN_HOM_BEYOND)
+        warns.push('Only ~'+beyond+' nt of homology flanks “'+e.label+'” on its nearer side. With fixed '+
+          armProx+'/'+armDist+' nt arms this can lower HDR — a guide cutting nearer the edit would give more homology.');
+    });
+
+    // apply only the in-window edits to the canonical genomic window (coords shifted by -W0)
+    const windowEdits=editsFinal.filter(within).map(e=>Object.assign({},e,{start0:e.start0-W0}));
+    const {seq:donorPlus, map:wmap, intervals}=applyEdits(gene.slice(W0,W1), windowEdits);
+
+    // ---- choose strand ----
+    let ssStrand=(t.strand==='+')?'-':'+';
+    if($('strandMode').value==='flip') ssStrand=(ssStrand==='+')?'-':'+';
+    const ssodn=(ssStrand==='+')?donorPlus:revcomp(donorPlus);
+
+    // ---- per-edit distance warnings ----
+    const editInfo=editsBase.map(e=>{
+      const es=e.start0, ee=e.start0+Math.max(e.refLen,1);
+      const d=(es>=cut)?(es-cut):(ee<=cut?(cut-ee):0);
+      return {label:e.label,dist:d,side:(es>=cut?'3′ of cut':'5′ of cut'),inside:within(e)};
+    });
+    editInfo.filter(e=>e.dist>DIST_WARN).forEach(e=>
+      warns.push('Edit “'+e.label+'” is ~'+e.dist+' bp from the cut. HDR efficiency falls off with distance — keep edits within ~10 bp if you can.'));
+    if(/N/.test(donorPlus)) warns.push('Donor contains N — verify your input sequence.');
+    if(ssodn.length>200) warns.push('ssODN is '+ssodn.length+' nt — long for synthesis; consider a dsDNA/PCR donor or split the design.');
+    else if(ssodn.length>120) warns.push('ssODN is '+ssodn.length+' nt — order as a long oligo (e.g. IDT Ultramer); PAGE/HPLC purification recommended.');
+
+    // ---- landmark offsets (window / donor coordinates) ----
+    const off=g=>{const gg=Math.max(W0,Math.min(W1,g)); return wmap[gg-W0];};
+    const lm={
+      donorLen:donorPlus.length,
+      protoRange:{a:off(t.pStart), b:off(t.pEnd)},
+      pamRange:{a:off(pamStart), b:off(pamEnd)},
+      cutOff:wmap[cut-W0],
+      editRanges:intervals.map(iv=>({a:iv.start, b:iv.end, isBlock:!!(iv.edit&&iv.edit.isBlock)})),
+    };
+
+    LAST={ssodn,ssStrand,donorPlus,t,pam,cut,armProx,armDist,leftArm:leftHom,rightArm:rightHom,
+          editsBase,editInfo,block,applyBlock,assess,gene,lm,
+          codingOn,lenPreserving};
+    renderResults(warns,errs);
+    $('results').style.display='block';
+    $('results').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){
+    msg.innerHTML='<div class="msg err">⚠ '+esc(e)+'</div>';
+  }
+}
+
+/* =========================================================================
+   Rendering
+   ========================================================================= */
+function renderResults(warns, errs){
+  const R=LAST;
+  $('strandPill').textContent=(R.ssStrand==='+'?'sense (+)':'antisense (−)')+
+    ' · '+(R.ssStrand!==R.t.strand?'complementary to non-target strand':'complementary to target strand');
+  $('ssodnSeq').innerHTML=highlightedSeq(R);
+
+  const stat=(k,v)=>`<div class="stat"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+  const proxArm=(R.t.strand==='+')?R.rightArm:R.leftArm, distArm=(R.t.strand==='+')?R.leftArm:R.rightArm;
+  $('stats').innerHTML=
+    stat('Length',R.ssodn.length+' nt')+
+    stat('Strand',R.ssStrand==='+'?'sense (+)':'antisense (−)')+
+    stat('GC',gc(R.ssodn)+'%')+
+    stat('Arms (prox/dist)',proxArm+' / '+distArm+' nt')+
+    stat('Edits',R.editsBase.length||'framework')+
+    stat('Target strand',R.t.strand);
+
+  let w='';
+  for(const m of (errs||[])) w+='<div class="msg err">⚠ '+esc(m)+'</div>';
+  if(R.assess.recut){
+    w+='<div class="msg warn"><b>Re-cutting risk.</b> '+esc(R.assess.reason)+(R.block?blockSuggestionHTML(R.block,R.applyBlock):'')+'</div>';
+  } else {
+    w+='<div class="msg ok"><b>Re-cutting blocked.</b> '+esc(R.assess.reason)+'</div>';
+  }
+  for(const m of warns) w+='<div class="msg warn">'+esc(m)+'</div>';
+  $('warnings').innerHTML=w;
+  const c=$('applyBlock'); if(c) c.addEventListener('change',design);
+
+  $('legend').innerHTML=[
+    ['--proto','protospacer'],['--pam','PAM'],['--edit','edit'],['--block','blocking mut'],
+    ['--armL','PAM-distal arm'],['--armR','PAM-proximal arm'],['--cut','Cas9 cut']
+  ].map(([v,l])=>`<span><span class="sw" style="background:var(${v})"></span>${l}</span>`).join('');
+  $('macro').innerHTML=renderMacro(R);
+  $('zoom').innerHTML=renderZoom(R);
+  $('explain').innerHTML=renderExplain(R,warns);
+}
+
+function classAt(R,o){
+  const L=R.lm;
+  for(const e of L.editRanges){ if(e.b>e.a && o>=e.a && o<e.b) return e.isBlock?'block':'edit'; } // edit/block win over PAM
+  if(L.pamRange && o>=L.pamRange.a && o<L.pamRange.b) return 'pam';
+  if(L.protoRange && o>=L.protoRange.a && o<L.protoRange.b) return 'proto';
+  return '';
+}
+function caseOnFlag(){ const c=$('caseToggle'); return c?c.checked:true; }
+// per-position chars in 5'->3' display order (oriented to the chosen strand)
+function casedChars(R){
+  const n=R.donorPlus.length; let items=[];
+  for(let o=0;o<n;o++){ const k=classAt(R,o); items.push({ch:R.donorPlus[o],cls:k,edit:(k==='edit'||k==='block')}); }
+  if(R.ssStrand!=='+') items=items.map(it=>({ch:comp(it.ch),cls:it.cls,edit:it.edit})).reverse();
+  return items;
+}
+function applyCase(it,caseOn){ return caseOn?(it.edit?it.ch.toUpperCase():it.ch.toLowerCase()):it.ch.toUpperCase(); }
+function highlightedSeq(R){
+  const caseOn=caseOnFlag();
+  return casedChars(R).map(it=>{
+    const ch=applyCase(it,caseOn);
+    const span=it.cls==='pam'?'hl-pam':it.cls==='edit'?'hl-edit':it.cls==='block'?'hl-block':'';
+    return span?`<span class="${span}">${ch}</span>`:ch;
+  }).join('');
+}
+function casedPlain(R){ const caseOn=caseOnFlag(); return casedChars(R).map(it=>applyCase(it,caseOn)).join(''); }
+function blockSuggestionHTML(b, applied){
+  if(!b||b.pos0==null) return '';
+  const tag=b.silent===true?' <b>(silent ✓)</b>':b.silent===false?' <b>(NOT silent — check protein)</b>':'';
+  const seed=(b.seedAlts&&b.seedAlts.length)?
+    `<br>Alternative — seed mutation at gene pos <code>${b.seedAlts[0].pos0+1}</code> ${b.seedAlts[0].from}→${b.seedAlts[0].to}`+
+    (b.seedAlts[0].silent===true?' (silent)':'')+'.':'';
+  return `<div style="margin-top:8px"><b>Suggested blocking mutation:</b> gene pos <code>${b.pos0+1}</code> ${b.from}→${b.to} — ${esc(b.note||'')}${tag}.${seed}
+    <div style="margin-top:8px"><label class="inline-check"><input type="checkbox" id="applyBlock"${applied?' checked':''}>Apply this blocking mutation to the donor</label></div></div>`;
+}
+
+/* ---------- macro schematic ---------- */
+function renderMacro(R){
+  const n=R.donorPlus.length, padL=70,padR=30,W=Math.max(820,n*5),H=210,x0=padL,drawW=W-padL-padR;
+  const X=o=>x0+drawW*(o/n);
+  const yGene=70,geneH=22,yArm=120,yOdn=160;
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,Segoe UI,Roboto,sans-serif" font-size="11">`;
+  s+=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>`;
+  s+=`<text x="6" y="${yGene+15}" fill="#6b7280">locus</text>`;
+  s+=`<rect x="${x0}" y="${yGene}" width="${drawW}" height="${geneH}" fill="#eef2f7" stroke="#cbd5e1"/>`;
+  const pr=R.lm.protoRange;
+  if(pr){const a=X(Math.min(pr.a,pr.b)),b=X(Math.max(pr.a,pr.b));
+    s+=`<rect x="${a}" y="${yGene}" width="${Math.max(1,b-a)}" height="${geneH}" fill="var(--proto)" opacity=".85"/>`;
+    s+=`<text x="${(a+b)/2}" y="${yGene-6}" fill="var(--proto)" text-anchor="middle">protospacer (${R.t.strand})</text>`;}
+  const pm=R.lm.pamRange;
+  if(pm){const a=X(Math.min(pm.a,pm.b)),b=X(Math.max(pm.a,pm.b));
+    s+=`<rect x="${a}" y="${yGene}" width="${Math.max(2,b-a)}" height="${geneH}" fill="var(--pam)"/>`;
+    s+=`<text x="${(a+b)/2}" y="${yGene+geneH+13}" fill="var(--pam)" text-anchor="middle">PAM</text>`;}
+  const xc=X(R.lm.cutOff);
+  s+=`<line x1="${xc}" y1="${yGene-14}" x2="${xc}" y2="${yArm+34}" stroke="var(--cut)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  s+=`<text x="${xc}" y="${yGene-18}" fill="var(--cut)" text-anchor="middle">✂ cut</text>`;
+  // edits
+  R.lm.editRanges.forEach(e=>{
+    const mid=X((e.a+(e.b>e.a?e.b:e.a))/2), col=e.isBlock?'var(--block)':'var(--edit)';
+    if(e.isBlock){ s+=`<circle cx="${mid}" cy="${yGene+geneH/2}" r="5" fill="${col}"/>`; }
+    else { s+=`<polygon points="${mid-5},${yGene-2} ${mid+5},${yGene-2} ${mid},${yGene+8}" fill="${col}"/>`; }
+  });
+  const drawnEdits=R.lm.editRanges.filter(e=>!e.isBlock);
+  if(drawnEdits.length){const e=drawnEdits[0]; const mid=X((e.a+e.b)/2);
+    s+=`<text x="${mid}" y="${yGene+geneH+26}" fill="var(--edit)" text-anchor="middle" font-weight="700">edit${drawnEdits.length>1?'×'+drawnEdits.length:''}</text>`;}
+  // arms
+  s+=`<text x="6" y="${yArm+14}" fill="#6b7280">arms</text>`;
+  const xL0=X(0),xR1=X(n);
+  s+=`<rect x="${xL0}" y="${yArm}" width="${xc-xL0}" height="14" fill="var(--armL)" opacity=".5"/>`;
+  s+=`<rect x="${xc}" y="${yArm}" width="${xR1-xc}" height="14" fill="var(--armR)" opacity=".5"/>`;
+  const leftLab=(R.t.strand==='+')?`${R.leftArm} nt · PAM-distal`:`${R.leftArm} nt · PAM-proximal`;
+  const rightLab=(R.t.strand==='+')?`${R.rightArm} nt · PAM-proximal`:`${R.rightArm} nt · PAM-distal`;
+  s+=`<text x="${(xL0+xc)/2}" y="${yArm+11}" text-anchor="middle" fill="#334155">${leftLab}</text>`;
+  s+=`<text x="${(xc+xR1)/2}" y="${yArm+11}" text-anchor="middle" fill="#334155">${rightLab}</text>`;
+  // ssODN
+  s+=`<text x="6" y="${yOdn+10}" fill="#6b7280">ssODN</text>`;
+  const sense=(R.ssStrand==='+'), ax0=sense?xL0:xR1, ax1=sense?xR1:xL0, dir=sense?1:-1;
+  s+=`<line x1="${ax0}" y1="${yOdn+4}" x2="${ax1}" y2="${yOdn+4}" stroke="#0f172a" stroke-width="2"/>`;
+  s+=`<polygon points="${ax1},${yOdn+4} ${ax1-7*dir},${yOdn} ${ax1-7*dir},${yOdn+8}" fill="#0f172a"/>`;
+  s+=`<text x="${ax0}" y="${yOdn-4}" text-anchor="${sense?'start':'end'}" fill="#0f172a">5′</text>`;
+  s+=`<text x="${ax1}" y="${yOdn-4}" text-anchor="${sense?'end':'start'}" fill="#0f172a">3′</text>`;
+  s+=`<text x="${(xL0+xR1)/2}" y="${yOdn+22}" text-anchor="middle" fill="#475569">${R.ssodn.length} nt · ${sense?'sense (+)':'antisense (−)'}</text>`;
+  return s+'</svg>';
+}
+
+/* ---------- base-level zoom around the cut ---------- */
+function renderZoom(R){
+  const half=18,n=R.donorPlus.length,c=Math.round(R.lm.cutOff);
+  const a=Math.max(0,c-half),b=Math.min(n,c+half),seq=R.donorPlus.slice(a,b);
+  const cw=15,padL=60,padTop=34,W=padL+seq.length*cw+20,H=150,X=i=>padL+i*cw+cw/2;
+  const col={pam:'var(--pam)',edit:'var(--edit)',block:'var(--block)',proto:'var(--proto)','':'#111827'};
+  let s=`<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="SF Mono,Menlo,Consolas,monospace" font-size="13">`;
+  s+=`<rect x="0" y="0" width="${W}" height="${H}" fill="#fff"/>`;
+  s+=`<text x="6" y="${padTop+5}" font-family="-apple-system,sans-serif" font-size="11" fill="#6b7280">+ strand</text>`;
+  s+=`<text x="6" y="${padTop+33}" font-family="-apple-system,sans-serif" font-size="11" fill="#6b7280">− strand</text>`;
+  s+=`<text x="${padL-8}" y="${padTop+5}" text-anchor="end" fill="#9ca3af">5′</text>`;
+  s+=`<text x="${X(seq.length-1)+12}" y="${padTop+5}" fill="#9ca3af">3′</text>`;
+  for(let i=0;i<seq.length;i++){
+    const o=a+i,k=classAt(R,o),top=seq[i],bot=comp(top);
+    if(k==='proto'||k==='pam') s+=`<rect x="${X(i)-cw/2}" y="${padTop-13}" width="${cw}" height="20" fill="${k==='pam'?'var(--pam)':'var(--proto)'}" opacity=".13"/>`;
+    if(k==='edit'||k==='block') s+=`<rect x="${X(i)-cw/2}" y="${padTop-13}" width="${cw}" height="48" fill="${col[k]}" opacity=".18"/>`;
+    s+=`<text x="${X(i)}" y="${padTop+5}" text-anchor="middle" fill="${col[k]||'#111827'}" font-weight="${k?700:400}">${top}</text>`;
+    s+=`<text x="${X(i)}" y="${padTop+33}" text-anchor="middle" fill="#94a3b8">${bot}</text>`;
+  }
+  const xcut=padL+(c-a)*cw;
+  s+=`<line x1="${xcut}" y1="${padTop-18}" x2="${xcut}" y2="${padTop+40}" stroke="var(--cut)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+  s+=`<text x="${xcut}" y="${padTop-22}" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="11" fill="var(--cut)">✂</text>`;
+  s+=`<text x="${padL}" y="${H-12}" font-family="-apple-system,sans-serif" font-size="11" fill="#6b7280">~${b-a} nt around the cut · top = + strand, bottom = complement</text>`;
+  return s+'</svg>';
+}
+
+/* ---------- prose explanation ---------- */
+function renderExplain(R,warns){
+  const sName=R.t.strand==='+'?'plus (+)':'minus (−)';
+  const nonTarget=R.t.strand==='+'?'plus':'minus';
+  const odn=R.ssStrand==='+'?'sense (+)':'antisense (−)';
+  const proxArm=(R.t.strand==='+')?R.rightArm:R.leftArm, distArm=(R.t.strand==='+')?R.leftArm:R.rightArm;
+  let editList;
+  if(R.editsBase.length===0) editList='<p>No edit specified — this is a scar-free homology framework. Place edits within ~10 bp of the cut for best HDR.</p>';
+  else editList='<p><b>Edit'+(R.editsBase.length>1?'s ('+R.editsBase.length+')':'')+':</b></p><ul>'+
+    R.editsBase.map((e,i)=>`<li><code>${esc(e.label)}</code> — ~${R.editInfo[i].dist} bp ${R.editInfo[i].side}`+
+      (R.editInfo[i].inside?'':' <b style="color:var(--err)">(outside the arms — not in the ssODN)</b>')+'</li>').join('')+'</ul>';
+  const recut=R.assess.recut
+    ? `<b>Re-cutting:</b> ${esc(R.assess.reason)} `+(R.block&&R.block.pos0!=null?
+        `Suggested fix: <code>${R.block.from}→${R.block.to}</code> at gene pos <code>${R.block.pos0+1}</code>`+
+        (R.applyBlock?' — <b>applied</b> to the donor above.':' — not applied (your choice).'):'')
+    : `<b>Re-cutting:</b> ${esc(R.assess.reason)}`;
+  return `
+   ${editList}
+   <p><b>Target:</b> protospacer found on the <b>${sName}</b> strand with a <code>${R.pam}</code> PAM (<code>${R.t.pamSeq}</code>).
+      SpCas9 cuts bluntly <b>3 bp 5′ of the PAM</b>, between gene positions <code>${R.cut}</code> and <code>${R.cut+1}</code>.</p>
+   <p><b>Strand choice:</b> the ssODN is the <b>${odn}</b> strand — complementary to the <b>${nonTarget}</b>
+      (non-target / “released”) strand Cas9 frees first; Richardson et&nbsp;al. found this gives the highest HDR.
+      (Toggle under <i>Advanced → ssODN strand</i>.)</p>
+   <p><b>Homology arms:</b> asymmetric — <b>${proxArm} nt PAM-proximal</b> + <b>${distArm} nt PAM-distal</b>, edits carried
+      inside the homology. Total ssODN length <b>${R.ssodn.length} nt</b>.</p>
+   <p>${recut}</p>
+   <p><b>Order &amp; deliver:</b> synthesize as a single long oligo; Richardson reports best results delivering the
+      Cas9 RNP + ssODN by <b>nucleofection</b>. Confirm edits by sequencing.</p>
+   ${warns.length?'<p style="color:var(--warn)"><b>Review the warnings above before ordering.</b></p>':''}`;
+}
+
+/* =========================================================================
+   Edit-row UI
+   ========================================================================= */
+function addEditRow(type, vals){
+  vals=vals||{};
+  const row=document.createElement('div');
+  row.className='editRow';
+  row.innerHTML=`
+    <select class="er-type">
+      <option value="sub">Substitution</option>
+      <option value="ins">Insertion</option>
+      <option value="del">Deletion</option>
+      <option value="rep">Replace (find→new)</option>
+    </select>
+    <input class="er-pos" type="number" min="1" placeholder="position">
+    <input class="er-seq mono" type="text" spellcheck="false" placeholder="new base(s)">
+    <input class="er-len" type="number" min="1" value="1" placeholder="# bases">
+    <input class="er-find mono" type="text" spellcheck="false" placeholder="find (reference seq)">
+    <input class="er-rep mono" type="text" spellcheck="false" placeholder="replace with (new seq)">
+    <button class="er-rm" type="button" title="remove">✕</button>
+    <span class="er-hint hint"></span>`;
+  $('editList').appendChild(row);
+  const sel=row.querySelector('.er-type');
+  sel.value=type||'sub';
+  if(vals.pos!=null) row.querySelector('.er-pos').value=vals.pos;
+  if(vals.seq!=null) row.querySelector('.er-seq').value=vals.seq;
+  if(vals.len!=null) row.querySelector('.er-len').value=vals.len;
+  if(vals.find!=null) row.querySelector('.er-find').value=vals.find;
+  if(vals.rep!=null) row.querySelector('.er-rep').value=vals.rep;
+  sel.addEventListener('change',()=>setRowType(row));
+  row.querySelector('.er-rm').addEventListener('click',()=>{ row.remove(); if(!$('editList').children.length) addEditRow('sub'); });
+  ['.er-pos','.er-seq','.er-len','.er-find'].forEach(s=>row.querySelector(s).addEventListener('input',()=>rowHint(row)));
+  setRowType(row);
+  return row;
+}
+function setRowType(row){
+  const t=row.querySelector('.er-type').value;
+  const show=(s,on)=>row.querySelector(s).style.display=on?'':'none';
+  show('.er-pos', t!=='rep');
+  show('.er-seq', t==='sub'||t==='ins');
+  show('.er-len', t==='del');
+  show('.er-find', t==='rep');
+  show('.er-rep', t==='rep');
+  row.querySelector('.er-seq').placeholder = t==='ins'?'sequence to insert':'new base(s)';
+  rowHint(row);
+}
+function rowHint(row){
+  const t=row.querySelector('.er-type').value, h=row.querySelector('.er-hint');
+  const gene=cleanSeq($('gene').value);
+  if(t==='rep'){
+    const f=cleanSeq(row.querySelector('.er-find').value);
+    if(!gene||!f){h.textContent='';return;}
+    const i=gene.indexOf(f), j=i>=0?gene.indexOf(f,i+1):-1;
+    h.textContent = i<0?'“'+f+'” not found':(j>=0?'found '+(gene.split(f).length-1)+'× — not unique':'found once at pos '+(i+1));
+    return;
+  }
+  const p=parseInt(row.querySelector('.er-pos').value);
+  if(!gene||!p||p<1||p>gene.length){h.textContent='';return;}
+  if(t==='del'){const d=Math.max(1,parseInt(row.querySelector('.er-len').value)||1); h.textContent='will delete: '+gene.substr(p-1,d);}
+  else if(t==='ins'){h.textContent='insert before base '+gene[p-1]+' (pos '+p+')';}
+  else {const seq=cleanSeq(row.querySelector('.er-seq').value)||' '; h.textContent='ref here: '+gene.substr(p-1,Math.max(1,seq.length));}
+}
+function resetEdits(){ $('editList').innerHTML=''; addEditRow('sub'); }
+
+/* =========================================================================
+   Buttons & wiring
+   ========================================================================= */
+function copySeq(){
+  if(!LAST) return;
+  navigator.clipboard.writeText(casedPlain(LAST)).then(()=>{
+    document.querySelectorAll('.copybtn').forEach(b=>{b.textContent='Copied ✓';setTimeout(()=>b.textContent='Copy',1200);});
+  });
+}
+function setSymmetric(){ $('armProx').value=60; $('armDist').value=60; }
+function clearAll(){
+  $('gene').value=''; $('sgrna').value=''; $('pam').value='NGG';
+  $('armProx').value=91; $('armDist').value=36; $('strandMode').value='auto';
+  $('codingOn').checked=false; $('codingFields').style.display='none'; $('cdsStart').value='';
+  resetEdits(); $('results').style.display='none'; $('inputMsg').innerHTML=''; LAST=null;
+}
+function loadExample(){
+  const left ='AGCTTGCATGCCTGCAGGTCGACTCTAGAGGATCCCCGGGTACCGAGCTCGAATTCACTGGCCGTCGTTTTACAACGTCGTGACTGGGAAAACCCTGGCGTTACCCAACTTAATCGCCTT';
+  const proto='GACCTGGAGAACGGCAAGCT', pam='CGG';
+  const right='GGCGAAAGGGGGATGTGCTGCAAGGCGATTAAGTTGGGTAACGCCAGGGTTTTCCCAGTCACGACGTTGTAAAACGACGGCCAGTGAATTCGAGCTCGGTACCCGGGGATCCTCTAGAGT';
+  $('gene').value=left+proto+pam+right;
+  $('sgrna').value=proto; $('pam').value='NGG';
+  $('armProx').value=91; $('armDist').value=36;
+  resetEdits();
+  // example: a PAM-distal point edit (leaves PAM+seed intact -> triggers a blocking suggestion)
+  const first=$('editList').querySelector('.editRow');
+  first.querySelector('.er-type').value='sub'; setRowType(first);
+  first.querySelector('.er-pos').value=left.length+8;
+  first.querySelector('.er-seq').value='C';
+  rowHint(first);
+  design();
+}
+$('gene').addEventListener('input',()=>document.querySelectorAll('#editList .editRow').forEach(rowHint));
+$('codingOn').addEventListener('change',e=>{ $('codingFields').style.display=e.target.checked?'flex':'none'; });
+$('caseToggle').addEventListener('change',()=>{ if(LAST) $('ssodnSeq').innerHTML=highlightedSeq(LAST); });
+$('quickEdits').innerHTML='<span class="hint">No edit in mind? Place it within ~10 bp of the cut. Common goals:</span>';
+['point mutation','stop codon (TAA)','restriction site','epitope tag'].forEach(t=>{
+  const b=document.createElement('button'); b.className='ghost'; b.textContent=t; b.type='button';
+  b.onclick=()=>{ $('inputMsg').innerHTML='<div class="msg ok">Tip: add an edit near the cut for a “'+t+'”. Press “Design ssODN” first to see the exact cut position, then set the edit position there.</div>'; };
+  $('quickEdits').appendChild(b);
+});
+resetEdits();   // start with one empty edit row
+</script>
+</body>
+</html>
